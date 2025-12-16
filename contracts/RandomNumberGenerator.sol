@@ -2,6 +2,7 @@
 pragma solidity ^0.8.27;
 
 import {FHE, euint64} from "@fhevm/solidity/lib/FHE.sol";
+import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import "./IEntropyOracle.sol";
 
 /**
@@ -14,7 +15,7 @@ import "./IEntropyOracle.sol";
  * - Storing encrypted random numbers
  * - Retrieving encrypted values
  */
-contract RandomNumberGenerator {
+contract RandomNumberGenerator is ZamaEthereumConfig {
     IEntropyOracle public entropyOracle;
     
     // Store generated random numbers
