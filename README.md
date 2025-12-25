@@ -1,6 +1,10 @@
-# EntropyOracle
+# RandomNumberGenerator
 
-Main oracle contract for entropy requests - Developer-friendly interface
+Learn how to generate encrypted random numbers
+
+## 🎓 What You'll Learn
+
+This example teaches you how to use FHEVM to build privacy-preserving smart contracts. You'll learn step-by-step how to implement encrypted operations, manage permissions, and work with encrypted data.
 
 ## 🚀 Quick Start
 
@@ -48,57 +52,39 @@ Main oracle contract for entropy requests - Developer-friendly interface
 
 ---
 
-## 📋 Overview
+## 📚 Overview
 
-@title EntropyOracle
-@notice Main oracle contract for entropy requests - Developer-friendly interface
-@dev Developers call requestEntropy() with 0.00001 ETH fee
+@title RandomNumberGenerator
+@notice Random number generator using entropy
+@dev Example demonstrating how to request entropy and use it for random number generation
+In this example, you will learn:
+- Requesting entropy from oracle
+- Storing encrypted random numbers
+- Retrieving encrypted values
 
-@notice Deploy EntropyOracle
-@param _chaosEngine Address of FHEChaosEngine contract
-@param _feeRecipient Address to receive fees
-@param initialOwner Initial owner address
+@notice Request a random number
+@param tag Unique tag for this request
+@return requestId The request ID from encrypted randomness
+@dev Requires 0.00001 ETH fee for entropy request
 
-@notice Request entropy - Main function for developers
-@param tag Unique tag for this request (e.g., keccak256("lottery-draw"))
-@return requestId Unique request ID
-@dev Requires exactly 0.00001 ETH fee
+@notice Get encrypted random number for a request
+@param requestId The request ID
+@return randomNumber Encrypted random number (euint64)
 
-@notice Get encrypted entropy for a request
-@param requestId Request ID returned from requestEntropy
-@return entropy Encrypted entropy (euint64)
+@notice Check if random number is generated for a request
+@param requestId The request ID
+@return generated True if generated
 
-@notice Check if request is fulfilled
-@param requestId Request ID
-@return fulfilled True if entropy is ready
-
-@notice Get request details
-@param requestId Request ID
-@return consumer Consumer address
-@return tag Request tag
-@return timestamp Request timestamp
-@return fulfilled Fulfillment status
-
-@notice Get current fee amount
-@return fee Fee in wei (0.00001 ETH = 10000000000000 wei)
-
-@notice Update fee recipient (owner only)
-@param newRecipient New fee recipient address
-
-@notice Update chaos engine (owner only, emergency use)
-@param newEngine New chaos engine address
-
-@notice Emergency withdraw (owner only)
-@param to Recipient address
-@param amount Amount to withdraw
+@notice Get total number of random numbers generated
+@return count Total count
 
 
 
-## 🔐 Zama FHEVM Usage
+## 🔐 Learn Zama FHEVM Through This Example
 
-This example demonstrates the following **Zama FHEVM** features:
+This example teaches you how to use the following **Zama FHEVM** features:
 
-### Zama FHEVM Features Used
+### What You'll Learn About
 
 - **ZamaEthereumConfig**: Inherits from Zama's network configuration
   ```solidity
@@ -113,6 +99,7 @@ This example demonstrates the following **Zama FHEVM** features:
   - `FHE.mul()` - Zama FHEVM operation
   - `FHE.eq()` - Zama FHEVM operation
   - `FHE.xor()` - Zama FHEVM operation
+  - `FHE.allowThis()` - Zama FHEVM operation
 
 - **Encrypted Types**: Uses Zama's encrypted integer types
   - `euint64` - 64-bit encrypted unsigned integer
@@ -137,31 +124,29 @@ import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 ### Zama FHEVM Code Example
 
 ```solidity
-// Using Zama FHEVM's encrypted integer type
-euint64 private encryptedValue;
-
-// Converting external encrypted value to internal (Zama FHEVM)
-euint64 internalValue = FHE.fromExternal(encryptedValue, inputProof);
-FHE.allowThis(internalValue); // Zama FHEVM permission system
-
-// Performing encrypted operations using Zama FHEVM
-euint64 result = FHE.add(encryptedValue, FHE.asEuint64(1));
+// Advanced Zama FHEVM usage patterns
+euint64 result = FHE.add(value1, value2);
 FHE.allowThis(result);
+
+// Combining multiple Zama FHEVM operations
+euint64 entropy = entropyOracle.getEncryptedEntropy(requestId);
+FHE.allowThis(entropy);
+euint64 finalResult = FHE.xor(result, entropy);
+FHE.allowThis(finalResult);
 ```
 
-### Zama FHEVM Concepts Demonstrated
+### FHEVM Concepts You'll Learn
 
-1. **Encrypted Arithmetic**: Using Zama FHEVM to encrypted arithmetic
-2. **Encrypted Comparison**: Using Zama FHEVM to encrypted comparison
-3. **External Encryption**: Using Zama FHEVM to external encryption
-4. **Permission Management**: Using Zama FHEVM to permission management
-5. **Entropy Integration**: Using Zama FHEVM to entropy integration
+1. **Complex FHE Operations**: Learn how to use Zama FHEVM for complex fhe operations
+2. **Real-World Applications**: Learn how to use Zama FHEVM for real-world applications
+3. **Entropy Integration**: Learn how to use Zama FHEVM for entropy integration
 
 ### Learn More About Zama FHEVM
 
 - 📚 [Zama FHEVM Documentation](https://docs.zama.org/protocol)
 - 🎓 [Zama Developer Hub](https://www.zama.org/developer-hub)
 - 💻 [Zama FHEVM GitHub](https://github.com/zama-ai/fhevm)
+
 
 
 ## 🔍 Contract Code
@@ -171,255 +156,99 @@ FHE.allowThis(result);
 pragma solidity ^0.8.27;
 
 import {FHE, euint64} from "@fhevm/solidity/lib/FHE.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ZamaEthereumConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import "./IEntropyOracle.sol";
-import "./FHEChaosEngine.sol";
 
 /**
- * @title EntropyOracle
- * @notice Main oracle contract for entropy requests - Developer-friendly interface
- * @dev Developers call requestEntropy() with 0.00001 ETH fee
+ * @title RandomNumberGenerator
+ * @notice Random number generator using entropy
+ * @dev Example demonstrating how to request entropy and use it for random number generation
+ * 
+ * This example shows:
+ * - Requesting entropy from oracle
+ * - Storing encrypted random numbers
+ * - Retrieving encrypted values
  */
-contract EntropyOracle is IEntropyOracle, Ownable, ReentrancyGuard {
-    // ============ Constants ============
+contract RandomNumberGenerator is ZamaEthereumConfig {
+    IEntropyOracle public entropyOracle;
     
-    /// @notice Fee per entropy request: 0.00001 ETH = 10000000000000 wei
-    uint256 public constant FEE_AMOUNT = 0.00001 ether; // 10000000000000 wei
+    // Store generated random numbers
+    mapping(uint256 => euint64) public randomNumbers;
+    mapping(uint256 => bool) public isGenerated;
     
-    // ============ State Variables ============
+    uint256 public totalGenerated;
     
-    /// @notice Core chaos engine
-    FHEChaosEngine public chaosEngine;
+    event RandomNumberRequested(uint256 indexed requestId, bytes32 tag);
+    event RandomNumberGenerated(uint256 indexed requestId, uint256 requestNumber);
     
-    /// @notice Fee recipient address
-    address public feeRecipient;
-    
-    /// @notice Request counter
-    uint256 private requestCounter;
-    
-    /// @notice Request structure
-    struct EntropyRequest {
-        address consumer;
-        bytes32 tag;
-        euint64 encryptedEntropy;
-        uint256 timestamp;
-        bool fulfilled;
+    constructor(address _entropyOracle) {
+        require(_entropyOracle != address(0), "Invalid oracle address");
+        entropyOracle = IEntropyOracle(_entropyOracle);
     }
     
-    /// @notice Mapping of request ID to request
-    mapping(uint256 => EntropyRequest) public requests;
-    
-    // ============ Events ============
-    
-    event EntropyRequested(
-        uint256 indexed requestId,
-        bytes32 indexed hashedConsumer, // Hashed consumer address for privacy
-        bytes32 hashedTag,              // Hashed tag for privacy
-        uint256 feePaid
-    );
-    
-    event EntropyFulfilled(
-        uint256 indexed requestId,
-        bytes32 indexed hashedConsumer, // Hashed consumer address for privacy
-        bytes32 hashedTag               // Hashed tag for privacy
-    );
-    
-    event FeeRecipientUpdated(address indexed oldRecipient, address indexed newRecipient);
-    event ChaosEngineUpdated(address indexed oldEngine, address indexed newEngine);
-    
-    // ============ Errors ============
-    
-    error InsufficientFee(uint256 required, uint256 provided);
-    error ChaosEngineNotSet();
-    error RequestNotFulfilled(uint256 requestId);
-    error InvalidAddress();
-    
-    // ============ Constructor ============
-    
     /**
-     * @notice Deploy EntropyOracle
-     * @param _chaosEngine Address of FHEChaosEngine contract
-     * @param _feeRecipient Address to receive fees
-     * @param initialOwner Initial owner address
+     * @notice Request a random number
+     * @param tag Unique tag for this request
+     * @return requestId The request ID from entropy oracle
+     * @dev Requires 0.00001 ETH fee for entropy request
      */
-    constructor(
-        address _chaosEngine,
-        address _feeRecipient,
-        address initialOwner
-    ) Ownable(initialOwner) {
-        if (_chaosEngine == address(0)) revert InvalidAddress();
-        if (_feeRecipient == address(0)) revert InvalidAddress();
+    function requestRandomNumber(bytes32 tag) external payable returns (uint256 requestId) {
+        require(msg.value >= entropyOracle.getFee(), "Insufficient fee");
         
-        chaosEngine = FHEChaosEngine(_chaosEngine);
-        feeRecipient = _feeRecipient;
-        requestCounter = 0;
-    }
-    
-    // ============ Main Function (Developer Interface) ============
-    
-    /**
-     * @notice Request entropy - Main function for developers
-     * @param tag Unique tag for this request (e.g., keccak256("lottery-draw"))
-     * @return requestId Unique request ID
-     * @dev Requires exactly 0.00001 ETH fee
-     */
-    function requestEntropy(bytes32 tag) 
-        external 
-        payable 
-        nonReentrant 
-        returns (uint256 requestId) 
-    {
-        // Check fee
-        if (msg.value < FEE_AMOUNT) {
-            revert InsufficientFee(FEE_AMOUNT, msg.value);
-        }
+        // Request entropy from oracle
+        requestId = entropyOracle.requestEntropy{value: msg.value}(tag);
         
-        // Increment request counter
-        requestCounter++;
-        requestId = requestCounter;
+        // Get encrypted entropy
+        euint64 entropy = entropyOracle.getEncryptedEntropy(requestId);
         
-        // Generate entropy using chaos engine
-        // Pass requestId for seed consistency
-        euint64 entropy = chaosEngine.generateEntropy(tag, msg.sender, requestId);
+        // Store encrypted random number
+        randomNumbers[requestId] = entropy;
+        isGenerated[requestId] = true;
+        totalGenerated++;
         
-        // Store request
-        requests[requestId] = EntropyRequest({
-            consumer: msg.sender,
-            tag: tag,
-            encryptedEntropy: entropy,
-            timestamp: block.timestamp,
-            fulfilled: true
-        });
-        
-        // Transfer fee to recipient
-        if (feeRecipient != address(0)) {
-            (bool success, ) = payable(feeRecipient).call{value: msg.value}("");
-            require(success, "Fee transfer failed");
-        }
-        
-        // Hash sensitive data for privacy in events
-        // Consumer: hash address for privacy
-        bytes32 hashedConsumer = keccak256(abi.encodePacked(msg.sender));
-        
-        // Tag: hash the tag for privacy
-        bytes32 hashedTag = keccak256(abi.encodePacked(tag));
-        
-        emit EntropyRequested(requestId, hashedConsumer, hashedTag, msg.value);
-        emit EntropyFulfilled(requestId, hashedConsumer, hashedTag);
+        emit RandomNumberRequested(requestId, tag);
+        emit RandomNumberGenerated(requestId, totalGenerated);
         
         return requestId;
     }
     
-    // ============ View Functions ============
-    
     /**
-     * @notice Get encrypted entropy for a request
-     * @param requestId Request ID returned from requestEntropy
-     * @return entropy Encrypted entropy (euint64)
+     * @notice Get encrypted random number for a request
+     * @param requestId The request ID
+     * @return randomNumber Encrypted random number (euint64)
      */
-    function getEncryptedEntropy(uint256 requestId) 
-        external 
-        view 
-        returns (euint64) 
-    {
-        if (!requests[requestId].fulfilled) {
-            revert RequestNotFulfilled(requestId);
-        }
-        return requests[requestId].encryptedEntropy;
+    function getRandomNumber(uint256 requestId) external view returns (euint64 randomNumber) {
+        require(isGenerated[requestId], "Random number not generated");
+        return randomNumbers[requestId];
     }
     
     /**
-     * @notice Check if request is fulfilled
-     * @param requestId Request ID
-     * @return fulfilled True if entropy is ready
+     * @notice Check if random number is generated for a request
+     * @param requestId The request ID
+     * @return generated True if generated
      */
-    function isRequestFulfilled(uint256 requestId) 
-        external 
-        view 
-        returns (bool) 
-    {
-        return requests[requestId].fulfilled;
+    function hasRandomNumber(uint256 requestId) external view returns (bool generated) {
+        return isGenerated[requestId];
     }
     
     /**
-     * @notice Get request details
-     * @param requestId Request ID
-     * @return consumer Consumer address
-     * @return tag Request tag
-     * @return timestamp Request timestamp
-     * @return fulfilled Fulfillment status
+     * @notice Get total number of random numbers generated
+     * @return count Total count
      */
-    function getRequest(uint256 requestId) 
-        external 
-        view 
-        returns (
-            address consumer,
-            bytes32 tag,
-            uint256 timestamp,
-            bool fulfilled
-        ) 
-    {
-        EntropyRequest memory request = requests[requestId];
-        return (
-            request.consumer,
-            request.tag,
-            request.timestamp,
-            request.fulfilled
-        );
-    }
-    
-    /**
-     * @notice Get current fee amount
-     * @return fee Fee in wei (0.00001 ETH = 10000000000000 wei)
-     */
-    function getFee() external pure returns (uint256) {
-        return FEE_AMOUNT;
-    }
-    
-    // ============ Admin Functions ============
-    
-    /**
-     * @notice Update fee recipient (owner only)
-     * @param newRecipient New fee recipient address
-     */
-    function setFeeRecipient(address newRecipient) external onlyOwner {
-        if (newRecipient == address(0)) revert InvalidAddress();
-        
-        address oldRecipient = feeRecipient;
-        feeRecipient = newRecipient;
-        
-        emit FeeRecipientUpdated(oldRecipient, newRecipient);
-    }
-    
-    /**
-     * @notice Update chaos engine (owner only, emergency use)
-     * @param newEngine New chaos engine address
-     */
-    function setChaosEngine(address newEngine) external onlyOwner {
-        if (newEngine == address(0)) revert InvalidAddress();
-        
-        address oldEngine = address(chaosEngine);
-        chaosEngine = FHEChaosEngine(newEngine);
-        
-        emit ChaosEngineUpdated(oldEngine, newEngine);
-    }
-    
-    /**
-     * @notice Emergency withdraw (owner only)
-     * @param to Recipient address
-     * @param amount Amount to withdraw
-     */
-    function emergencyWithdraw(address to, uint256 amount) external onlyOwner {
-        if (to == address(0)) revert InvalidAddress();
-        (bool success, ) = payable(to).call{value: amount}("");
-        require(success, "Withdraw failed");
+    function getTotalGenerated() external view returns (uint256 count) {
+        return totalGenerated;
     }
 }
 
-
 ```
 
+## 🧪 Tests
+
+See [test file](./test/RandomNumberGenerator.test.ts) for comprehensive test coverage.
+
+```bash
+npm test
+```
 
 
 ## 📚 Category
